@@ -1,0 +1,451 @@
+<UserControl
+    x:Class="MiniGoods.Inventory.WPF.Views.PriceHistoryView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:conv="clr-namespace:MiniGoods.Inventory.WPF.Converters"
+    xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF">
+    <UserControl.Resources>
+        <conv:InverseBooleanConverter    x:Key="InverseBool" />
+        <conv:ByteArrayToImageConverter  x:Key="ByteArrayToImage" />
+    </UserControl.Resources>
+
+    <Grid Background="{StaticResource ContentBg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  页头  -->
+        <Border
+            Grid.Row="0"
+            Padding="24,16"
+            Background="White"
+            BorderBrush="{StaticResource BorderGray}"
+            BorderThickness="0,0,0,1">
+            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                <TextBlock
+                    Margin="0,0,10,0"
+                    VerticalAlignment="Center"
+                    FontSize="22"
+                    Text="💰" />
+                <StackPanel>
+                    <TextBlock Style="{StaticResource PageTitle}" Text="价格历史" />
+                    <TextBlock Style="{StaticResource PageSubtitle}" Text="查看售价 / 市均价 / 进价走势，支持历史条目内联编辑" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!--  主体  -->
+        <Grid Grid.Row="1" Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <!--  搜索 + 选择栏  -->
+                <RowDefinition Height="300" />
+                <!--  折线图  -->
+                <RowDefinition Height="*" />
+                <!--  历史记录表  -->
+                <RowDefinition Height="Auto" />
+                <!--  新增记录栏  -->
+            </Grid.RowDefinitions>
+
+            <!--  ── 搜索 + 商品选择栏 ──  -->
+            <Border
+                Grid.Row="0"
+                Margin="0,0,0,12"
+                Padding="16,12"
+                Background="White"
+                BorderBrush="{StaticResource BorderGray}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!--  语音 / 文字搜索行  -->
+                    <StackPanel
+                        Grid.Row="0"
+                        Margin="0,0,0,10"
+                        Orientation="Horizontal">
+                        <Button
+                            Margin="0,0,10,0"
+                            Padding="14,8"
+                            Command="{Binding StartVoiceCommand}"
+                            FontSize="13"
+                            IsEnabled="{Binding IsRecognizing, Converter={StaticResource InverseBool}}"
+                            Style="{StaticResource PrimaryBtn}">
+                            <Button.Content>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock
+                                        Margin="0,0,5,0"
+                                        VerticalAlignment="Center"
+                                        FontSize="15"
+                                        Text="🎙️" />
+                                    <TextBlock VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="语音搜索" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsRecognizing}" Value="True">
+                                                        <Setter Property="Text" Value="正在识别..." />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Button.Content>
+                        </Button>
+                        <TextBlock
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="#4A5568"
+                            Text="识别/搜索词：" />
+                        <TextBox
+                            MinWidth="200"
+                            Padding="8,6"
+                            VerticalContentAlignment="Center"
+                            FontSize="13"
+                            Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.Style>
+                                <Style BasedOn="{StaticResource {x:Type TextBox}}" TargetType="TextBox">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRecognizing}" Value="True">
+                                            <Setter Property="Background" Value="#EBF3FD" />
+                                            <Setter Property="IsReadOnly" Value="True" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+                        <Button
+                            Margin="8,0,0,0"
+                            Padding="14,8"
+                            Command="{Binding SearchByTextCommand}"
+                            Content="🔍 按名搜索"
+                            FontSize="13"
+                            Style="{StaticResource NeutralBtn}" />
+                    </StackPanel>
+
+                    <!--  商品下拉 + 刷新行  -->
+                    <StackPanel
+                        Grid.Row="1"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+                        <Button
+                            Margin="0,0,16,0"
+                            Command="{Binding LoadCommand}"
+                            Content="🔄 刷新商品"
+                            Style="{StaticResource NeutralBtn}" />
+                        <TextBlock
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="#4A5568"
+                            Text="选择商品：" />
+                        <ComboBox
+                            MinWidth="260"
+                            VerticalAlignment="Center"
+                            ItemsSource="{Binding Products}"
+                            SelectedItem="{Binding SelectedProduct}">
+                            <!-- 下拉每一项：图标 + 商品名 -->
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Border Width="26" Height="26" CornerRadius="3"
+                                                Background="#F0F4F8" ClipToBounds="True"
+                                                Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <Grid>
+                                                <TextBlock Text="🏷" FontSize="13"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"/>
+                                                <Image Source="{Binding IconData, Converter={StaticResource ByteArrayToImage}}"
+                                                       Stretch="UniformToFill"/>
+                                            </Grid>
+                                        </Border>
+                                        <TextBlock Text="{Binding Name}"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="13"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!--  ── 折线图（售价 / 市均价 / 进价） ──  -->
+            <Border
+                Grid.Row="1"
+                Margin="0,0,0,12"
+                Padding="8"
+                Background="White"
+                BorderBrush="{StaticResource BorderGray}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        Foreground="#B0BEC5"
+                        Text="请先选择商品查看价格走势">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedProduct}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    
+                        <lvc:CartesianChart
+                        LegendPosition="Bottom"
+                        LegendTextPaint="{Binding LegendTextPaint}"
+                        Series="{Binding ChartSeries}"
+                        TooltipTextPaint="{Binding TooltipTextPaint}"
+                        XAxes="{Binding XAxes}"
+                        YAxes="{Binding YAxes}" 
+                        />
+                    
+                </Grid>
+            </Border>
+
+            <!--  ── 历史记录表（可内联编辑） ──  -->
+            <Border
+                Grid.Row="2"
+                Margin="0,0,0,12"
+                Background="White"
+                BorderBrush="{StaticResource BorderGray}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!--  表头 + 保存按钮  -->
+                    <Border
+                        Grid.Row="0"
+                        Padding="12,8"
+                        BorderBrush="{StaticResource BorderGray}"
+                        BorderThickness="0,0,0,1">
+                        <Grid>
+                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                                <TextBlock
+                                    FontSize="13"
+                                    FontWeight="SemiBold"
+                                    Foreground="#2D3748"
+                                    Text="价格变动记录" />
+                                <TextBlock
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    FontSize="12"
+                                    Foreground="#7A8FA6">
+                                    <Run Text="共" />
+                                    <Run Text="{Binding HistoryItems.Count, Mode=OneWay}" />
+                                    <Run Text="条  · 双击单元格可编辑，编辑完成后点击保存" />
+                                </TextBlock>
+                            </StackPanel>
+                            <Button
+                                Padding="14,6"
+                                HorizontalAlignment="Right"
+                                Command="{Binding SaveChangesCommand}"
+                                Content="💾 保存修改"
+                                FontSize="13"
+                                Style="{StaticResource SuccessBtn}" />
+                        </Grid>
+                    </Border>
+
+                    <!--  可编辑 DataGrid：HistoryID / ProductID 只读，其余可改  -->
+                    <DataGrid
+                        x:Name="HistoryGrid"
+                        Grid.Row="1"
+                        Margin="1,0,1,1"
+                        AutoGenerateColumns="False"
+                        CanUserAddRows="False"
+                        IsReadOnly="False"
+                        IsSynchronizedWithCurrentItem="False"
+                        ItemsSource="{Binding HistoryItems}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn
+                                Width="60"
+                                Binding="{Binding HistoryID}"
+                                Header="记录ID"
+                                IsReadOnly="True" />
+                            <DataGridTextColumn
+                                Width="60"
+                                Binding="{Binding ProductID}"
+                                Header="商品ID"
+                                IsReadOnly="True" />
+                            <DataGridTextColumn Width="100" Header="售价(¥)">
+                                <DataGridTextColumn.Binding>
+                                    <Binding
+                                        Path="Price"
+                                        StringFormat="{}{0:F2}"
+                                        UpdateSourceTrigger="LostFocus" />
+                                </DataGridTextColumn.Binding>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Width="100" Header="市均价(¥)">
+                                <DataGridTextColumn.Binding>
+                                    <Binding
+                                        Path="MarketPrice"
+                                        StringFormat="{}{0:F2}"
+                                        UpdateSourceTrigger="LostFocus" />
+                                </DataGridTextColumn.Binding>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Width="100" Header="进价(¥)">
+                                <DataGridTextColumn.Binding>
+                                    <Binding
+                                        Path="CostPrice"
+                                        StringFormat="{}{0:F2}"
+                                        UpdateSourceTrigger="LostFocus" />
+                                </DataGridTextColumn.Binding>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Width="*" Header="变更时间（可编辑，格式 yyyy-MM-dd HH:mm:ss）">
+                                <DataGridTextColumn.Binding>
+                                    <Binding Path="ChangeDateDisplay" UpdateSourceTrigger="LostFocus" />
+                                </DataGridTextColumn.Binding>
+                            </DataGridTextColumn>
+                            <!--  删除操作列  -->
+                            <DataGridTemplateColumn
+                                Width="64"
+                                Header="操作"
+                                IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button
+                                            Padding="8,3"
+                                            HorizontalAlignment="Center"
+                                            Command="{Binding DataContext.DeleteHistoryItemCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Content="🗑 删除"
+                                            FontSize="12"
+                                            Style="{StaticResource DangerBtn}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!--  ── 新增价格记录栏 ──  -->
+            <Border
+                Grid.Row="3"
+                Padding="16,12"
+                Background="White"
+                BorderBrush="{StaticResource BorderGray}"
+                BorderThickness="1"
+                CornerRadius="6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!--  当前售价提示  -->
+                    <StackPanel
+                        Grid.Column="0"
+                        Margin="0,0,20,0"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="#4A5568"
+                            Text="新增记录，当前售价：" />
+                        <TextBlock
+                            Margin="4,0,0,0"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            FontWeight="Bold"
+                            Foreground="{StaticResource DangerBrush}"
+                            Text="{Binding SelectedProduct.Price, StringFormat='¥{0:F2}', FallbackValue='未选择'}" />
+                    </StackPanel>
+
+                    <!--  三价 + 自定义时间输入  -->
+                    <StackPanel
+                        Grid.Column="1"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+                        <TextBlock
+                            Margin="0,0,6,0"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="#4A5568"
+                            Text="售价：" />
+                        <TextBox
+                            Width="80"
+                            VerticalAlignment="Center"
+                            Text="{Binding NewPrice, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock
+                            Margin="12,0,6,0"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="#4A5568"
+                            Text="市均价：" />
+                        <TextBox
+                            Width="80"
+                            VerticalAlignment="Center"
+                            Text="{Binding NewMarketPrice, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <TextBlock
+                            Margin="12,0,6,0"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="#4A5568"
+                            Text="进价：" />
+                        <TextBox
+                            Width="80"
+                            VerticalAlignment="Center"
+                            Text="{Binding NewCostPrice, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <!--  自定义记录时间  -->
+                        <TextBlock
+                            Margin="12,0,6,0"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="#4A5568"
+                            Text="记录日期：" />
+                        <DatePicker
+                            Width="130"
+                            VerticalAlignment="Center"
+                            FirstDayOfWeek="Monday"
+                            SelectedDate="{Binding NewChangeDate, Mode=TwoWay}" />
+
+                        <TextBlock
+                            Margin="8,0,6,0"
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="#4A5568"
+                            Text="时间：" />
+                        <TextBox
+                            Width="68"
+                            VerticalAlignment="Center"
+                            Text="{Binding NewChangeTimeStr, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="格式：HH:mm，如 14:30" />
+                    </StackPanel>
+
+                    <!--  确认按钮  -->
+                    <Button
+                        Grid.Column="2"
+                        Padding="20,9"
+                        Command="{Binding UpdatePriceCommand}"
+                        Content="✅ 新增记录"
+                        FontSize="14"
+                        Style="{StaticResource PrimaryBtn}" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
